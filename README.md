@@ -46,5 +46,4 @@ losetup -d /dev/loop0
     Alternatively a tool such as `objcopy` can be used to rip
     a plain binary out of an executable.
 
-    Currently only small kernels can be successfully loaded and executed.
-    The kernel should be well under 1MB in size to be reliably loaded.
+     **Important!** The kernel **must** be no bigger than 64KiB to be loaded.

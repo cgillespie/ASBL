@@ -50,6 +50,9 @@ bpb_FATsize16:		.word	0x0000
 msgLoading:	.ascii	"Loading KERNEL.BIN "
 		.byte	9, 0
 
+msgKernelSize:	.ascii	"Error: Kernel is larger than 64KiB!"
+		.byte	13, 10, 0
+
 msgFailure:	.ascii	"Error: System Halted"
 		.byte	13, 10, 0
 
@@ -72,8 +75,8 @@ dataStart:	.word	0x0000		# The sector on disk the data starts at
 DAP:		.byte	0x10
 		.byte	0x00
 DAP.NumSectors:	.word	0x0000		# Number of sectors to read
-DAP.Buffer1:	.word	0x0000		# Where to read into - low
-DAP.Buffer2:	.word	0x0000		# Where to read into - high
+DAP.Buffer1:	.word	0x0000		# Where to read into - offset
+DAP.Buffer2:	.word	0x0000		# Where to read into - segment
 DAP.Sector1:	.word	0x0000		# Where to read from - lowest
 DAP.Sector2:	.word	0x0000		# Where to read from - low
 DAP.Sector3:	.word	0x0000		# Where to read from - high
@@ -82,6 +85,7 @@ DAP.Sector4:	.word	0x0000		# Where to read from - highest
 #--------------------------------------
 # The Global Descriptor Table (GDT)
 #--------------------------------------
+.align	0x4	#align on 4byte boundary for performance
 gdt:		# GDT address
 gdt_null:	# null segment
 	.long	0x00000000
@@ -249,9 +253,11 @@ disk.loadFAT:
 	movw	$TEMP, (DAP.Buffer1)
 	call	disk.readSectors
 
-	xor	%ax, %ax
+	movw	$0x0820, %ax		# segment to kernel buffer
+	movw	%ax, (DAP.Buffer2)
 	movw	%ax, %es
-	movw	$KERNEL, %bx
+
+	xor	%bx, %bx		# kernel buffer offset (starts at zero)
 	push	%bx
 
 	movb	(bpb_SectorsPerCluster), %cl
@@ -271,6 +277,11 @@ disk.loadImage:
 	mulw	(bpb_BytesPerSector)
 	add	%ax, %bx
 	push	%bx
+
+	jo	kernelTooBig	# If the buffer overflows the file must be
+				# larger than 64KiB
+				# TODO: Instead of failing increment the segment
+				# by 64KiB
 
 	# Find the next cluster in the chain
 	movw	(cluster), %ax
@@ -313,6 +324,12 @@ disk.loadImage.done:
 	ljmp	$0x08, $moveKernel	# jump into 32bit code
 
 
+kernelTooBig:
+	mov	$msgKernelSize, %si
+	call	screen.print
+	cli
+	hlt
+
 failBoot:
 	mov	$msgFailure, %si
 	call	screen.print
@@ -350,7 +367,7 @@ moveKernel:
 	movl	$FINAL, %edi
 
 	cld
-	mov	$0x8000, %ecx	# Size of kernel
+	mov	$0xFFFF, %ecx	# Max size of kernel (64KiB)
 	rep	movsb
 
 	ljmp	$0x08, $FINAL
