@@ -56,7 +56,7 @@ bs_FileSystemType:	.ascii	"FAT12   "	# 8 bytes - File System Type
 #######################################
 # Strings
 #######################################
-msgWelcome:	.ascii	"ABSL - A Simple Boot Loader"
+msgWelcome:	.ascii	"ASBL - A Simple Boot Loader"
 		.byte	13, 10, 0
 msgLoading:	.ascii	"Loading STAGE2.BIN "
 		.byte	9, 0
